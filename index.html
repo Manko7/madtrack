@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MadTrack</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+  <div class="app-container">
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="tracker"><i class="fa-solid fa-clock"></i> Tracker</button>
+      <button class="tab-btn" data-tab="stats"><i class="fa-solid fa-chart-line"></i> Statistics</button>
+      <button class="tab-btn" data-tab="search"><i class="fa-solid fa-magnifying-glass"></i> Search</button>
+    </nav>
+
+    <!-- Tracker View -->
+    <main id="tab-tracker" class="tab-content active">
+      <div class="glass-panel timer-panel">
+        <input type="text" id="track-label" class="hollow-input" placeholder="What are you working on?" autocomplete="off">
+        <input type="text" id="track-todo-input" class="hollow-input small-input" placeholder="Add a sub-task / todo and press Enter..." autocomplete="off">
+        <ul id="active-todos" class="todo-list"></ul>
+        
+        <div class="timer-display">
+          <span id="time-hours">00</span>:<span id="time-minutes">00</span>:<span id="time-seconds">00</span>
+        </div>
+        <div class="controls">
+          <button id="btn-start" class="btn primary-btn"><i class="fa-solid fa-play"></i> Start</button>
+          <button id="btn-pause" class="btn secondary-btn" disabled><i class="fa-solid fa-pause"></i> Pause</button>
+          <button id="btn-stop" class="btn danger-btn" disabled><i class="fa-solid fa-stop"></i> Stop</button>
+        </div>
+      </div>
+
+      <div class="list-section">
+        <div class="section-header">
+          <h3>Today's Tracks</h3>
+          <span id="today-total">0h 0m</span>
+        </div>
+        <div class="warning-banner" id="under-hours-warning" style="display: none;">
+          <i class="fa-solid fa-triangle-exclamation"></i> Less than 5h tracked today!
+        </div>
+        <ul id="track-list" class="track-list">
+          <!-- Tracks will be injected here -->
+        </ul>
+      </div>
+    </main>
+
+    <!-- Stats View -->
+    <main id="tab-stats" class="tab-content">
+      <div class="glass-panel">
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 0.8rem;">
+          <button id="btn-dummy-data" class="icon-btn" title="Load Demo Data" style="background: rgba(15, 23, 42, 0.4); border: 1px solid var(--panel-border);"><i class="fa-solid fa-vial"></i></button>
+          <button id="btn-clear-data" class="icon-btn" title="Clear Data" style="color: var(--accent-color); border: 1px solid rgba(244, 63, 94, 0.3); background: rgba(244, 63, 94, 0.1); width: auto; padding: 0 0.8rem; gap: 6px;"><i class="fa-solid fa-trash-can"></i> <span>Clear All</span></button>
+          <button id="btn-export-csv" class="icon-btn" title="Export as CSV" style="background: rgba(15, 23, 42, 0.4); border: 1px solid var(--panel-border);"><i class="fa-solid fa-download"></i></button>
+        </div>
+        
+        <div class="stats-header">
+           <h3 id="stats-range-title">Statistics</h3>
+           <select id="stats-range" class="hollow-input small-input" style="max-width: 150px; margin-bottom: 0;">
+               <!-- Injected dynamically -->
+           </select>
+        </div>
+        <div class="stats-summary">
+          <div class="stat-box">
+            <span class="stat-label">Total Time</span>
+            <span class="stat-value" id="stats-total">0h 0m</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">Avg / Day</span>
+            <span class="stat-value" id="stats-avg">0h 0m</span>
+          </div>
+        </div>
+        <div class="chart-container">
+           <div class="chart-y-axis" id="chart-y-axis">
+             <!-- Y-axis labels injected here -->
+           </div>
+           <div class="bar-chart" id="bar-chart">
+             <!-- Bars injected here -->
+           </div>
+        </div>
+      </div>
+      
+      <div class="list-section">
+          <div class="section-header">
+              <h3 id="stats-lower-title">All Tracked Labels</h3>
+              <button id="btn-stats-back" class="btn small-btn" style="display: none;"><i class="fa-solid fa-arrow-left"></i> Back</button>
+          </div>
+          <ul id="stats-label-list" class="track-list">
+              <!-- Break down of labels -->
+          </ul>
+          <ul id="stats-details-list" class="track-list" style="display: none;">
+              <!-- Detail tracks -->
+          </ul>
+      </div>
+    </main>
+
+    <!-- Search View -->
+    <main id="tab-search" class="tab-content">
+      <div class="glass-panel" style="margin-bottom: 2rem;">
+        <input type="text" id="search-input" class="hollow-input" placeholder="Search labels or sub-tasks..." autocomplete="off">
+        
+        <div style="margin-top: 1rem;">
+            <div style="color:var(--text-muted); font-size: 0.8rem; margin-bottom:0.4rem;"><i class="fa-regular fa-calendar-days"></i> Limit by Date:</div>
+            <div style="display:flex; gap: 8px; align-items:center;">
+                <input type="date" id="search-date-from" class="hollow-input small-input" style="flex:1;">
+                <span style="color:var(--text-muted);">-</span>
+                <input type="date" id="search-date-to" class="hollow-input small-input" style="flex:1;">
+            </div>
+            <div class="search-quick-filters" style="display:flex; gap: 6px; margin-top: 0.6rem; flex-wrap:wrap;">
+                <button class="btn small-btn search-filter-btn" data-filter="all" style="padding:4px 8px; font-size:0.75rem; background:rgba(30, 41, 59, 0.4); border: 1px solid var(--panel-border);">All Time</button>
+                <button class="btn small-btn search-filter-btn" data-filter="current_month" style="padding:4px 8px; font-size:0.75rem; background:rgba(30, 41, 59, 0.4); border: 1px solid var(--panel-border);">Current Month</button>
+                <button class="btn small-btn search-filter-btn" data-filter="last_3_months" style="padding:4px 8px; font-size:0.75rem; background:rgba(30, 41, 59, 0.4); border: 1px solid var(--panel-border);">3 Months</button>
+                <button class="btn small-btn search-filter-btn" data-filter="last_6_months" style="padding:4px 8px; font-size:0.75rem; background:rgba(30, 41, 59, 0.4); border: 1px solid var(--panel-border);">6 Months</button>
+                <button class="btn small-btn search-filter-btn" data-filter="current_year" style="padding:4px 8px; font-size:0.75rem; background:rgba(30, 41, 59, 0.4); border: 1px solid var(--panel-border);">Current Year</button>
+            </div>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; margin-top: 1.5rem; align-items:center;">
+            <span style="color:var(--text-muted); font-size:0.9rem;">Found: <strong id="search-count" style="color:var(--text-main);">0</strong></span>
+            <span style="font-weight:600; color:var(--text-muted); font-size:0.9rem;">Total: <strong id="search-total" style="color:var(--primary-color);">0h 0m</strong></span>
+        </div>
+      </div>
+
+      <div class="list-section">
+        <ul id="search-results-list" class="track-list">
+          <li class="track-item" style="justify-content: center; color: var(--text-muted); font-size: 0.9rem;">Start typing to search...</li>
+        </ul>
+      </div>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

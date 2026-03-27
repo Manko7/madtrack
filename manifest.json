@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "MadTrack",
+  "version": "1.0",
+  "author": "Manko",
+  "description": "A modern, standalone Timetracking extension capturing durations and tasks.",
+  "action": {
+    "default_popup": "index.html",
+    "default_title": "Open MadTrack"
+  },
+  "permissions": [
+    "storage"
+  ]
+}
