@@ -21,7 +21,6 @@ const formatDurationShort = (ms) => {
     return `${hours}h ${minutes}m`;
 };
 
-// State
 let state = {
     activeTrack: {
         isRunning: false,
@@ -30,7 +29,14 @@ let state = {
         startTime: null,
         accumulated: 0
     },
-    tracks: []
+    tracks: [],
+    settings: {
+        pomodoroEnabled: false,
+        pomodoroWork: 25,
+        pomodoroBreak: 5,
+        dailyTarget: 5,
+        defaultStatsRange: 'current_week'
+    }
 };
 
 let statsState = {
@@ -79,7 +85,13 @@ const els = {
     searchResults: document.getElementById('search-results-list'),
     searchDateFrom: document.getElementById('search-date-from'),
     searchDateTo: document.getElementById('search-date-to'),
-    searchFilterBtns: document.querySelectorAll('.search-filter-btn')
+    searchFilterBtns: document.querySelectorAll('.search-filter-btn'),
+    // Settings
+    settingPomodoroEnabled: document.getElementById('setting-pomodoro-enabled'),
+    settingPomodoroWork: document.getElementById('setting-pomodoro-work'),
+    settingPomodoroBreak: document.getElementById('setting-pomodoro-break'),
+    settingDailyTarget: document.getElementById('setting-daily-target'),
+    settingDefaultStatsRange: document.getElementById('setting-default-stats-range')
 };
 
 let timerInterval = null;
@@ -87,12 +99,22 @@ let timerInterval = null;
 // Initialization
 function init() {
     loadState();
+    
+    // Apply settings to UI
+    if (els.settingPomodoroEnabled) els.settingPomodoroEnabled.checked = state.settings.pomodoroEnabled;
+    if (els.settingPomodoroWork) els.settingPomodoroWork.value = state.settings.pomodoroWork;
+    if (els.settingPomodoroBreak) els.settingPomodoroBreak.value = state.settings.pomodoroBreak;
+    if (els.settingDailyTarget) els.settingDailyTarget.value = state.settings.dailyTarget || 5;
+    if (els.settingDefaultStatsRange) els.settingDefaultStatsRange.value = state.settings.defaultStatsRange || 'current_week';
+
     populateStatsRange();
     setupEventListeners();
     updateUI();
     if (state.activeTrack.isRunning) {
         startTimerVisuals();
     }
+    
+    checkForUpdates();
 }
 
 // Dummy Data
@@ -160,8 +182,9 @@ function populateStatsRange() {
   `;
   
   els.statsRange.innerHTML = html;
-  els.statsRange.value = 'current_week';
-  statsState.range = 'current_week';
+  const defRange = (state.settings && state.settings.defaultStatsRange) ? state.settings.defaultStatsRange : 'current_week';
+  els.statsRange.value = defRange;
+  statsState.range = defRange;
 }
 
 // Storage
@@ -171,6 +194,12 @@ function loadState() {
         try {
             state = JSON.parse(stored);
             state.activeTrack.todos = state.activeTrack.todos || [];
+            if (!state.settings) {
+                state.settings = { pomodoroEnabled: false, pomodoroWork: 25, pomodoroBreak: 5, dailyTarget: 5, defaultStatsRange: 'current_week' };
+            } else {
+                if (state.settings.dailyTarget === undefined) state.settings.dailyTarget = 5;
+                if (state.settings.defaultStatsRange === undefined) state.settings.defaultStatsRange = 'current_week';
+            }
             
             if (state.activeTrack.notes) {
                  state.activeTrack.todos.unshift({
@@ -359,10 +388,26 @@ function updateTimerDisplay(forceDuration = null) {
         }
     }
     
-    const { hours, minutes, seconds } = formatDuration(duration);
-    els.timeHours.innerText = String(hours).padStart(2, '0');
-    els.timeMinutes.innerText = String(minutes).padStart(2, '0');
-    els.timeSeconds.innerText = String(seconds).padStart(2, '0');
+    if (state.settings && state.settings.pomodoroEnabled) {
+        const workMs = (state.settings.pomodoroWork || 25) * 60 * 1000;
+        let remaining = workMs - duration;
+        if (remaining <= 0) {
+            remaining = 0;
+            if (state.activeTrack.isRunning) {
+                pauseTimer();
+                setTimeout(() => alert(`Pomodoro Session Complete! Take a ${state.settings.pomodoroBreak} minute break.`), 100);
+            }
+        }
+        const { hours, minutes, seconds } = formatDuration(remaining);
+        els.timeHours.innerText = String(hours).padStart(2, '0');
+        els.timeMinutes.innerText = String(minutes).padStart(2, '0');
+        els.timeSeconds.innerText = String(seconds).padStart(2, '0');
+    } else {
+        const { hours, minutes, seconds } = formatDuration(duration);
+        els.timeHours.innerText = String(hours).padStart(2, '0');
+        els.timeMinutes.innerText = String(minutes).padStart(2, '0');
+        els.timeSeconds.innerText = String(seconds).padStart(2, '0');
+    }
 }
 
 function renderActiveTodos() {
@@ -611,7 +656,9 @@ function checkWarning(todayMsFallback = null) {
         }
     }
     
-    if (todayMs < 5 * 3600 * 1000) {
+    const targetHours = (state.settings && state.settings.dailyTarget !== undefined) ? state.settings.dailyTarget : 5;
+    if (todayMs < targetHours * 3600 * 1000) {
+        els.warningBanner.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Less than ${targetHours}h tracked today!`;
         els.warningBanner.style.display = 'flex';
     } else {
         els.warningBanner.style.display = 'none';
@@ -1109,6 +1156,77 @@ function setupEventListeners() {
             });
         });
     }
+
+    // Settings Listeners
+    if (els.settingPomodoroEnabled) {
+        els.settingPomodoroEnabled.addEventListener('change', (e) => {
+            state.settings.pomodoroEnabled = e.target.checked;
+            saveState();
+            updateTimerDisplay();
+        });
+        els.settingPomodoroWork.addEventListener('change', (e) => {
+            state.settings.pomodoroWork = parseInt(e.target.value) || 25;
+            saveState();
+            updateTimerDisplay();
+        });
+        els.settingPomodoroBreak.addEventListener('change', (e) => {
+            state.settings.pomodoroBreak = parseInt(e.target.value) || 5;
+            saveState();
+        });
+        if (els.settingDailyTarget) {
+            els.settingDailyTarget.addEventListener('change', (e) => {
+                state.settings.dailyTarget = parseFloat(e.target.value) || 5;
+                saveState();
+                checkWarning();
+            });
+        }
+        if (els.settingDefaultStatsRange) {
+            els.settingDefaultStatsRange.addEventListener('change', (e) => {
+                state.settings.defaultStatsRange = e.target.value;
+                saveState();
+                populateStatsRange();
+                updateStatsView();
+            });
+        }
+    }
+}
+
+// Version Check
+async function checkForUpdates() {
+    try {
+        const currentVersion = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getManifest) 
+            ? chrome.runtime.getManifest().version 
+            : '1.0';
+            
+        const response = await fetch('https://raw.githubusercontent.com/Manko7/madtrack/main/manifest.json', { cache: "no-store" });
+        if (!response.ok) return;
+        
+        const remoteManifest = await response.json();
+        const remoteVersion = remoteManifest.version;
+        
+        if (remoteVersion && remoteVersion !== currentVersion && isNewerVersion(currentVersion, remoteVersion)) {
+            const banner = document.getElementById('update-banner');
+            const txt = document.getElementById('update-version');
+            if (banner && txt) {
+                txt.innerText = remoteVersion;
+                banner.style.display = 'flex';
+            }
+        }
+    } catch (e) {
+        console.warn("Update check failed", e);
+    }
+}
+
+function isNewerVersion(current, remote) {
+    const v1 = current.split('.').map(Number);
+    const v2 = remote.split('.').map(Number);
+    for (let i = 0; i < Math.max(v1.length, v2.length); i++) {
+        let n1 = v1[i] || 0;
+        let n2 = v2[i] || 0;
+        if (n1 < n2) return true;
+        if (n1 > n2) return false;
+    }
+    return false;
 }
 
 // Start app

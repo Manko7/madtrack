@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="400" height="400">
+  <defs>
+    <!-- Background Gradient for the full M -->
+    <linearGradient id="gradient1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8b5cf6" />
+      <stop offset="100%" stop-color="#3b82f6" />
+    </linearGradient>
+    <filter id="hand-shadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="4" stdDeviation="3" flood-color="#000000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+
+  <!-- Solid white background with rounded corners -->
+  <rect width="200" height="200" fill="#ffffff" rx="44" />
+
+  <!-- The FULL uninterrupted 'M' foundation (ensures left half is perfect) -->
+  <path d="M 40 155 L 40 55 L 100 125 L 160 55 L 160 155" 
+        fill="none" 
+        stroke="url(#gradient1)" 
+        stroke-width="26" 
+        stroke-linecap="round" 
+        stroke-linejoin="round" />
+
+  <!-- THE CLOCK OVERLAY (Hands perfectly integrated ON the V lines) -->
+
+  <!-- Minute Hand (Right Diagonal - Long) -->
+  <path d="M 100 125 L 154 62" 
+        fill="none" 
+        stroke="#ffffff" 
+        stroke-width="14" 
+        stroke-linecap="round" 
+        filter="url(#hand-shadow)" />
+
+  <!-- Hour Hand (Left Diagonal - Shorter) -->
+  <path d="M 100 125 L 70 90" 
+        fill="none" 
+        stroke="#ffffff" 
+        stroke-width="14" 
+        stroke-linecap="round" 
+        filter="url(#hand-shadow)" />
+
+  <!-- Clock Pivot -->
+  <circle cx="100" cy="125" r="14" fill="#ffffff" filter="url(#hand-shadow)" />
+  <circle cx="100" cy="125" r="5" fill="#0f172a" />
+</svg>
