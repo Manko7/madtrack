@@ -1,0 +1,22 @@
+#madtrack-wrapper {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  width: 440px;
+  height: 570px;
+  z-index: 2147483647; /* max z-index */
+  background: transparent;
+  border: none;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+}
+
+#madtrack-iframe {
+  flex: 1;
+  width: 100%;
+  border: none;
+  background: transparent;
+}

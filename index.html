@@ -14,6 +14,7 @@
   <div class="app-container">
     <nav class="tabs">
       <button class="tab-btn active" data-tab="tracker"><i class="fa-solid fa-clock"></i></br>Tracker</button>
+      <button class="tab-btn" data-tab="timer"><i class="fa-solid fa-hourglass-half"></i></br>Timer</button>
       <button class="tab-btn" data-tab="stats"><i class="fa-solid fa-chart-line"></i></br>Statistics</button>
       <button class="tab-btn" data-tab="search"><i class="fa-solid fa-magnifying-glass"></i></br> Search</button>
       <button class="tab-btn" data-tab="settings"><i class="fa-solid fa-gear"></i></br>Settings</button>
@@ -49,6 +50,35 @@
         <ul id="track-list" class="track-list">
           <!-- Tracks will be injected here -->
         </ul>
+      </div>
+    </main>
+
+    <!-- Timer View -->
+    <main id="tab-timer" class="tab-content">
+      <div class="glass-panel timer-panel">
+        <label for="timer-minutes" style="font-size: 0.9rem; color: var(--text-muted); display: block; margin-bottom: 0.5rem; text-align: left;">Countdown Time (Minutes):</label>
+        <input type="number" id="timer-minutes" class="hollow-input" placeholder="e.g. 15" autocomplete="off" min="1" value="15" style="margin-bottom: 1rem; font-size: 1.5rem; font-weight: 600; text-align: center;">
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; padding: 0.5rem 1rem; background: rgba(15, 23, 42, 0.4); border-radius: 12px; border: 1px solid var(--panel-border);">
+          <span>Continuous Loop <i class="fa-solid fa-repeat" style="font-size: 0.8rem; margin-left: 4px; color: var(--primary-color);"></i></span>
+          <label class="switch">
+            <input type="checkbox" id="timer-continuous">
+            <span class="slider round"></span>
+          </label>
+        </div>
+
+        <div class="timer-display" style="color: var(--primary-color);">
+          <span id="countdown-minutes">15</span>:<span id="countdown-seconds">00</span>
+        </div>
+        
+        <div style="margin-bottom: 1.5rem; font-weight: 600; color: var(--text-muted);">
+          Loops Completed: <span id="timer-loops" style="color: var(--success); font-size: 1.2rem;">0</span>
+        </div>
+
+        <div class="controls">
+          <button id="btn-timer-start" class="btn primary-btn"><i class="fa-solid fa-play"></i> Start Timer</button>
+          <button id="btn-timer-stop" class="btn danger-btn" disabled><i class="fa-solid fa-stop"></i> Stop</button>
+        </div>
       </div>
     </main>
 
@@ -225,6 +255,12 @@
         </div>
       </div>
     </main>
+  </div>
+
+  <div id="window-controls" style="position: fixed; bottom: 12px; right: 12px; display: flex; gap: 8px; background: rgba(30, 41, 59, 0.85); padding: 8px 12px; border-radius: 20px; backdrop-filter: blur(8px); border: 1px solid var(--panel-border); cursor: default; z-index: 9999;">
+     <button class="icon-btn" id="btn-pin" title="Fixieren (damit es beim Klicken nicht schließt)"><i class="fa-solid fa-thumbtack"></i></button>
+     <button class="icon-btn" id="btn-lock" title="Sperren (Bewegung blockieren)"><i class="fa-solid fa-unlock"></i></button>
+     <button class="icon-btn" id="btn-close-app" title="Schließen"><i class="fa-solid fa-xmark"></i></button>
   </div>
 
   <script src="app.js"></script>

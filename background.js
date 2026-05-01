@@ -1,0 +1,13 @@
+chrome.action.onClicked.addListener((tab) => {
+    // Only inject on http/https pages
+    if (tab.url.startsWith("http://") || tab.url.startsWith("https://")) {
+        chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            files: ['content.js']
+        });
+        chrome.scripting.insertCSS({
+            target: { tabId: tab.id },
+            files: ['content.css']
+        });
+    }
+});

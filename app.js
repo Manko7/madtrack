@@ -36,6 +36,13 @@ let state = {
         pomodoroBreak: 5,
         dailyTarget: 5,
         defaultStatsRange: 'current_week'
+    },
+    timer: {
+        isRunning: false,
+        endTime: null,
+        durationMs: 15 * 60000,
+        continuous: false,
+        loops: 0
     }
 };
 
@@ -78,6 +85,15 @@ const els = {
     statsLabelList: document.getElementById('stats-label-list'),
     statsDetailsList: document.getElementById('stats-details-list'),
     
+    // Timer
+    timerMinutes: document.getElementById('timer-minutes'),
+    timerContinuous: document.getElementById('timer-continuous'),
+    countdownMinutes: document.getElementById('countdown-minutes'),
+    countdownSeconds: document.getElementById('countdown-seconds'),
+    timerLoops: document.getElementById('timer-loops'),
+    btnTimerStart: document.getElementById('btn-timer-start'),
+    btnTimerStop: document.getElementById('btn-timer-stop'),
+    
     // Search
     searchInput: document.getElementById('search-input'),
     searchCount: document.getElementById('search-count'),
@@ -97,8 +113,8 @@ const els = {
 let timerInterval = null;
 
 // Initialization
-function init() {
-    loadState();
+async function init() {
+    await loadState();
     
     // Apply settings to UI
     if (els.settingPomodoroEnabled) els.settingPomodoroEnabled.checked = state.settings.pomodoroEnabled;
@@ -107,14 +123,39 @@ function init() {
     if (els.settingDailyTarget) els.settingDailyTarget.value = state.settings.dailyTarget || 5;
     if (els.settingDefaultStatsRange) els.settingDefaultStatsRange.value = state.settings.defaultStatsRange || 'current_week';
 
+    if (els.timerContinuous) els.timerContinuous.checked = state.timer.continuous;
+    if (els.timerMinutes) els.timerMinutes.value = state.timer.durationMs / 60000;
+
     populateStatsRange();
     setupEventListeners();
     updateUI();
-    if (state.activeTrack.isRunning) {
+    if (state.activeTrack.isRunning || state.timer.isRunning) {
         startTimerVisuals();
     }
     
     checkForUpdates();
+
+    // Listen for cross-tab updates via chrome.storage
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
+        chrome.storage.onChanged.addListener((changes, namespace) => {
+            if (namespace === 'local' && changes.madtrack_state) {
+                try {
+                    const newState = JSON.parse(changes.madtrack_state.newValue);
+                    // Only update if it actually changed
+                    if (JSON.stringify(newState) !== JSON.stringify(state)) {
+                        state = newState;
+                        updateUI();
+                        if (state.activeTrack.isRunning || state.timer.isRunning) {
+                            startTimerVisuals();
+                        } else {
+                            stopTimerVisuals();
+                            updateTimerDisplay();
+                        }
+                    }
+                } catch(e) {}
+            }
+        });
+    }
 }
 
 // Dummy Data
@@ -189,7 +230,29 @@ function populateStatsRange() {
 
 // Storage
 function loadState() {
-    const stored = localStorage.getItem('madtrack_state') || localStorage.getItem('novatrack_state');
+    return new Promise((resolve) => {
+        const fallback = () => {
+            const stored = localStorage.getItem('madtrack_state') || localStorage.getItem('novatrack_state');
+            handleLoadedStore(stored);
+            resolve();
+        };
+
+        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+            chrome.storage.local.get(['madtrack_state'], (res) => {
+                const stored = res.madtrack_state || localStorage.getItem('madtrack_state') || localStorage.getItem('novatrack_state');
+                handleLoadedStore(stored);
+                if (stored && !res.madtrack_state) {
+                    saveState(); // Migrate to chrome storage
+                }
+                resolve();
+            });
+        } else {
+            fallback();
+        }
+    });
+}
+
+function handleLoadedStore(stored) {
     if (stored) {
         try {
             state = JSON.parse(stored);
@@ -199,6 +262,9 @@ function loadState() {
             } else {
                 if (state.settings.dailyTarget === undefined) state.settings.dailyTarget = 5;
                 if (state.settings.defaultStatsRange === undefined) state.settings.defaultStatsRange = 'current_week';
+            }
+            if (!state.timer) {
+                state.timer = { isRunning: false, endTime: null, durationMs: 15 * 60000, continuous: false, loops: 0 };
             }
             
             if (state.activeTrack.notes) {
@@ -219,11 +285,19 @@ function loadState() {
         } catch (e) {
             console.error("Failed to parse state", e);
         }
+    } else {
+        if (!state.timer) {
+            state.timer = { isRunning: false, endTime: null, durationMs: 15 * 60000, continuous: false, loops: 0 };
+        }
     }
 }
 
 function saveState() {
-    localStorage.setItem('madtrack_state', JSON.stringify(state));
+    const s = JSON.stringify(state);
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        chrome.storage.local.set({ madtrack_state: s });
+    }
+    localStorage.setItem('madtrack_state', s);
     localStorage.removeItem('novatrack_state'); // Cleanup migration
 }
 
@@ -364,6 +438,30 @@ function deleteSubtask(id) {
     }
 }
 
+// Timer Actions
+function startCountdownTimer() {
+    state.timer.durationMs = parseInt(els.timerMinutes.value) * 60000 || 15 * 60000;
+    state.timer.continuous = els.timerContinuous.checked;
+    state.timer.isRunning = true;
+    state.timer.endTime = Date.now() + state.timer.durationMs;
+    
+    saveState();
+    startTimerVisuals();
+    updateUI();
+}
+
+function stopCountdownTimer() {
+    state.timer.isRunning = false;
+    state.timer.endTime = null;
+    
+    saveState();
+    if (!state.activeTrack.isRunning) {
+        stopTimerVisuals();
+    }
+    updateTimerDisplay();
+    updateUI();
+}
+
 // Timer Loop
 function startTimerVisuals() {
     if (timerInterval) clearInterval(timerInterval);
@@ -379,6 +477,7 @@ function stopTimerVisuals() {
 }
 
 function updateTimerDisplay(forceDuration = null) {
+    // 1. Tracker Display
     let duration = forceDuration;
     if (duration === null) {
         if (state.activeTrack.isRunning) {
@@ -399,14 +498,41 @@ function updateTimerDisplay(forceDuration = null) {
             }
         }
         const { hours, minutes, seconds } = formatDuration(remaining);
-        els.timeHours.innerText = String(hours).padStart(2, '0');
-        els.timeMinutes.innerText = String(minutes).padStart(2, '0');
-        els.timeSeconds.innerText = String(seconds).padStart(2, '0');
+        if (els.timeHours) els.timeHours.innerText = String(hours).padStart(2, '0');
+        if (els.timeMinutes) els.timeMinutes.innerText = String(minutes).padStart(2, '0');
+        if (els.timeSeconds) els.timeSeconds.innerText = String(seconds).padStart(2, '0');
     } else {
         const { hours, minutes, seconds } = formatDuration(duration);
-        els.timeHours.innerText = String(hours).padStart(2, '0');
-        els.timeMinutes.innerText = String(minutes).padStart(2, '0');
-        els.timeSeconds.innerText = String(seconds).padStart(2, '0');
+        if (els.timeHours) els.timeHours.innerText = String(hours).padStart(2, '0');
+        if (els.timeMinutes) els.timeMinutes.innerText = String(minutes).padStart(2, '0');
+        if (els.timeSeconds) els.timeSeconds.innerText = String(seconds).padStart(2, '0');
+    }
+
+    // 2. Countdown Timer Display
+    if (state.timer.isRunning && state.timer.endTime) {
+        let remainingTimer = state.timer.endTime - Date.now();
+        if (remainingTimer <= 0) {
+            if (state.timer.continuous) {
+                state.timer.loops += 1;
+                state.timer.endTime = Date.now() + state.timer.durationMs;
+                remainingTimer = state.timer.durationMs;
+                saveState(); // Save loop increment
+                if (els.timerLoops) els.timerLoops.innerText = state.timer.loops;
+            } else {
+                remainingTimer = 0;
+                stopCountdownTimer();
+                setTimeout(() => alert("Countdown Finished!"), 100);
+            }
+        }
+        const { hours: th, minutes: tm, seconds: ts } = formatDuration(Math.max(0, remainingTimer));
+        const totalMinutes = th * 60 + tm;
+        if (els.countdownMinutes) els.countdownMinutes.innerText = String(totalMinutes).padStart(2, '0');
+        if (els.countdownSeconds) els.countdownSeconds.innerText = String(ts).padStart(2, '0');
+    } else {
+        const totalMs = state.timer.durationMs || 15 * 60000;
+        const totalMins = Math.floor(Math.max(0, totalMs) / 60000);
+        if (els.countdownMinutes) els.countdownMinutes.innerText = String(totalMins).padStart(2, '0');
+        if (els.countdownSeconds) els.countdownSeconds.innerText = "00";
     }
 }
 
@@ -596,6 +722,26 @@ function updateUI() {
              els.labelInput.value = state.activeTrack.label;
         }
     }
+
+    // Timer Logic UI Update
+    if (els.btnTimerStart) {
+        if (state.timer.isRunning) {
+            els.btnTimerStart.disabled = true;
+            els.btnTimerStart.innerHTML = `<i class="fa-solid fa-play"></i> Running...`;
+            els.btnTimerStop.disabled = false;
+        } else {
+            els.btnTimerStart.disabled = false;
+            els.btnTimerStart.innerHTML = `<i class="fa-solid fa-play"></i> Start Timer`;
+            els.btnTimerStop.disabled = true;
+        }
+    }
+    if (els.timerLoops) els.timerLoops.innerText = state.timer.loops;
+    if (els.timerMinutes && !state.timer.isRunning) {
+         if (document.activeElement !== els.timerMinutes) {
+             els.timerMinutes.value = Math.floor(state.timer.durationMs / 60000);
+         }
+    }
+    if (els.timerContinuous && !state.timer.isRunning) els.timerContinuous.checked = state.timer.continuous;
     
     renderActiveTodos();
     
@@ -997,6 +1143,24 @@ function setupEventListeners() {
     els.btnPause.addEventListener('click', () => pauseTimer());
     els.btnStop.addEventListener('click', () => stopTimer());
     
+    // Countdown Timer Buttons
+    if (els.btnTimerStart) {
+        els.btnTimerStart.addEventListener('click', () => startCountdownTimer());
+        els.btnTimerStop.addEventListener('click', () => stopCountdownTimer());
+        els.timerMinutes.addEventListener('change', (e) => {
+            const val = parseInt(e.target.value);
+            if (val > 0) {
+                state.timer.durationMs = val * 60000;
+                saveState();
+                updateTimerDisplay(); // reflect in the static label immediately
+            }
+        });
+        els.timerContinuous.addEventListener('change', (e) => {
+            state.timer.continuous = e.target.checked;
+            saveState();
+        });
+    }
+
     // Track List Event Delegation
     const handleTrackListClick = (e) => {
         const resumeBtn = e.target.closest('.resume-btn');
@@ -1227,6 +1391,52 @@ function isNewerVersion(current, remote) {
         if (n1 > n2) return false;
     }
     return false;
+}
+
+// Window Drag & Controls Logic
+let isPinned = false;
+let isLocked = false;
+
+document.addEventListener('mousedown', (e) => {
+    if (isLocked) return;
+    
+    // Check if clicking on an interactive element
+    if (e.target.closest('button, input, select, label, .track-item, .todo-item, .stat-label-item, a, .slider')) {
+        return;
+    }
+    
+    // Hand off drag to parent to prevent iframe event loss
+    window.parent.postMessage({
+        type: 'madtrack_drag_start',
+        offsetX: e.clientX,
+        offsetY: e.clientY
+    }, '*');
+});
+
+const btnPin = document.getElementById('btn-pin');
+const btnLock = document.getElementById('btn-lock');
+const btnCloseApp = document.getElementById('btn-close-app');
+
+if (btnPin) {
+    btnPin.addEventListener('click', () => {
+        isPinned = !isPinned;
+        btnPin.style.color = isPinned ? 'var(--primary-color)' : 'var(--text-muted)';
+        window.parent.postMessage({ type: 'madtrack_pin', pinned: isPinned }, '*');
+    });
+}
+
+if (btnLock) {
+    btnLock.addEventListener('click', () => {
+        isLocked = !isLocked;
+        btnLock.innerHTML = isLocked ? '<i class="fa-solid fa-lock"></i>' : '<i class="fa-solid fa-unlock"></i>';
+        btnLock.style.color = isLocked ? 'var(--accent-color)' : 'var(--text-muted)';
+    });
+}
+
+if (btnCloseApp) {
+    btnCloseApp.addEventListener('click', () => {
+        window.parent.postMessage({ type: 'madtrack_close' }, '*');
+    });
 }
 
 // Start app
